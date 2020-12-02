@@ -2,6 +2,7 @@ import sys
 import boto3
 from decouple import config
 from botocore.exceptions import ClientError
+import time
 
 AWS_ACCESS_KEY_ID = config('aws_access_key_id')
 AWS_SECRET_ACCESS_KEY = config('aws_secret_access_key')
@@ -15,8 +16,8 @@ ec2resource_ohio = session.resource('ec2', region_name='us-east-2')
 ec2client_virginia = session.client('ec2', region_name='us-east-1')
 ec2resource_virginia = session.resource('ec2', region_name='us-east-1')
 
-##ec2LoadBclient_virginia= session.client('ec2', region_name= 'us-east-1')
-##ec2AutoSclient_virginia= session.client('ec2', region_name= 'us-east-1')
+ec2LoadBclient_virginia= session.client('ec2', region_name= 'us-east-1')
+ec2AutoSclient_virginia= session.client('ec2', region_name= 'us-east-1')
 
 
 def definirIp(cliente, nome):
@@ -162,7 +163,7 @@ def del_img(img_name):
     ]
   )
   if len(response['Images'])>0:
-    id_img = image_id['Images'][0]['ImageId']
+    id_img = response['Images'][0]['ImageId']
     ec2client_virginia.deregister_image(ImageId=id_img)
 
 def criar_img(instance_id, nome):
@@ -172,6 +173,75 @@ def criar_img(instance_id, nome):
     Name=nome)
   ec2client_virginia.get_waiter('image_available').wait( ImageIds=[img["ImageId"]])
   return (img)
+
+def delete_LB(cliente, nome):
+  cliente.delete_load_balancer(LoadBalancerName=nome)
+
+  time.sleep(30)
+
+def criar_LB(cliente, nome, security_Id):
+  response = cliente.create_load_balancer(
+    LoadBalancerName=nome,
+    Listeners=[
+      {
+        'Protocol': 'HTTP',
+          'LoadBalancerPort': 80,
+          'InstancePort': 8080
+      }],
+    AvailabilityZones=[
+      'us-east-1a',
+      'us-east-1b',
+      'us-east-1c',
+      'us-east-1d',
+      'us-east-1e',
+      'us-east-1f'
+    ],
+    SecurityGroups=[security_Id],
+    Tags=[
+      {
+        'Key': 'Name', 'Value': 'joseLB'
+      }
+    ]
+  )
+
+def delete_ASL(cliente, nome):
+  response = cliente.describe_launch_configurations(LaunchConfigurationNames = [nome])
+  if len(response['LaunchConfigurations'])>0:
+    client.delete_launch_configuration(LaunchConfigurationName=nome)
+
+def criar_ASL(cliente, nome, image, security_id):
+  cliente.create_launch_configuration(
+    LaunchConfigurationName=nome, ImageId=image, KeyName='josekeysNV', SecurityGroups=[security_id], InstanceType='t2.micro'
+  )
+
+def delete_AS(cliente, nome, launchName):
+  response = cliente.describe_auto_caling_groups(AutoScalingGroupNames=[nome])
+  for n in response['AutoScalinfGroups']:
+    if n['AutoScalingGroupName'] == nome:
+      cliente.delete_auto_scaling_group(
+        AutoScalingGroupName=nome,
+        ForceDelete=True
+      )
+
+def criar_AS(cliente,nome, launch_name):
+  client.create_auto_scaling_group(
+    AutoScalingGroupName=nome,
+    LaunchConfigurationName=launch_name,
+    MinSize=2,
+    MaxSize=5,
+    DesiredCapacity=2,
+    AvailabilityZones=[
+      'us-east-1a',
+      'us-east-1b',
+      'us-east-1c',
+      'us-east-1d',
+      'us-east-1e',
+      'us-east-1f'
+    ],
+    LoadBalancerNames=['LoadBalancer'],
+    CapacityRebalance=True
+  )
+
 
 
 
@@ -188,4 +258,17 @@ del_img('joseORM')
 img = criar_img(virId, 'joseORM')
 delete_instancia(ec2client_virginia, 'JoseVirginia')
 
+delete_LB(ec2LoadBclient_virginia, 'joseLB')
+time.sleep(10)
 
+criar_LB(ec2LoadBclient_virginia, joseLB, virId)
+time.sleep(10)
+
+delete_ASL(ec2AutoSclient_virginia, 'joseASL', virId)
+time.sleep(10)
+
+criar_ASL(ec2AutoSclient_virginia, 'joseAS', img,  virId)
+time.sleep(10)
+
+delete_AS(ec2AutoSclient_virginia,joseAS , joseASL  )
+time.sleep(10)
