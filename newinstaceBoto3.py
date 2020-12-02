@@ -151,6 +151,30 @@ def VirginiaInst(ohioIp):
   except ClientError as e:
     print(e)
 
+
+def del_img(img_name):
+  response = ec2client_virginia.describe_images(
+    Filters=[
+      {
+        'Name': 'name',
+        'Values': [img_name]
+      }
+    ]
+  )
+  if len(response['Images'])>0:
+    id_img = image_id['Images'][0]['ImageId']
+    ec2client_virginia.deregister_image(ImageId=id_img)
+
+def criar_img(instance_id, nome):
+  img = ec2client_virginia.create_image(
+    InstanceId = instance_id,
+    NoReboot = True,
+    Name=nome)
+  ec2client_virginia.get_waiter('image_available').wait( ImageIds=[img["ImageId"]])
+  return (img)
+
+
+
 delete_instancia(ec2client_ohio, 'instDB')
 delete_instancia(ec2client_virginia, 'JoseVirginia')
 
@@ -158,5 +182,10 @@ ohio()
 ohioip = definirIp(ec2client_ohio, 'instDB')
 
 VirginiaInst(ohioip)
+virId = definirId(ec2client_virginia, 'JoseVirginia')
+del_img('joseORM')
+
+img = criar_img(virId, 'joseORM')
+delete_instancia(ec2client_virginia, 'JoseVirginia')
 
 
