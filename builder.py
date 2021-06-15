@@ -14,6 +14,7 @@ delete_ASL(clientAutoScalling, 'LoucherAS')
 delete_instancia(ec2client_ohio, 'instDB')
 delete_instancia(ec2client_virginia, 'JoseVirginia')
 delete_LB(elbLoadBalance, 'JoseLoadBalance')
+del_img('joseORM')
 time.sleep(60)
 delete(ec2client_virginia, "sgJoseNV")
 delete(ec2client_ohio, "sgJoseOH")
@@ -30,7 +31,7 @@ ohioip = definirIp(ec2client_ohio, 'instDB')
 VirginiaInst(ohioip, sgverginia)
 virId = definirId(ec2client_virginia, 'JoseVirginia')
 
-del_img('joseORM')
+
 img = criar_img(virId, 'joseORM')
 delete_instancia(ec2client_virginia, 'JoseVirginia')  
 
